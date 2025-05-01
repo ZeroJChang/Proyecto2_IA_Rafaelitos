@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Traductor de Señas en Vivo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 20px;
+      padding: 20px;
+    }
+
+    video {
+      border: 2px solid black;
+      border-radius: 10px;
+      margin: 10px auto;
+      display: block;
+      max-width: 100%;
+    }
+
+    #status {
+      font-size: 1.2em;
+      margin: 10px;
+      min-height: 24px;
+    }
+
+    #letraDetectada {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 15px;
+      min-height: 40px;
+    }
+
+    #fraseDisplay {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 20px auto;
+      background-color: #f9f9f9;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      min-height: 60px;
+      max-width: 600px;
+    }
+
+    #resetButton {
+      margin: 30px auto;
+      padding: 15px;
+      background-color: red;
+      color: white;
+      border: none;
+      border-radius: 15px;
+      font-size: 1.2em;
+      width: 90%;
+      max-width: 600px;
+      cursor: pointer;
+      display: block;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Traductor de Señas en Vivo</h1>
+
+    <video id="video" width="640" height="480" autoplay muted playsinline></video>
+
+    <div id="status">Buscando manos...</div>
+    <div id="letraDetectada"></div>
+    <div id="fraseDisplay">Aquí aparecerá la frase...</div>
+
+    <button id="resetButton">Resetear Frase</button>
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const fraseDisplay = document.getElementById("fraseDisplay");
+    const letraDetectada = document.getElementById("letraDetectada");
+    const statusElement = document.getElementById("status");
+    const resetButton = document.getElementById("resetButton");
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 224;
+    canvas.height = 224;
+
+    let handDetected = false;
+    let lastLetter = '';
+    let lastLetterTime = 0;
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 0,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults((results) => {
+      handDetected = !!results.multiHandLandmarks.length;
+      if (handDetected) {
+        statusElement.textContent = "Mano detectada...";
+        statusElement.style.color = "#3498db";
+      } else {
+        statusElement.textContent = "Buscando manos...";
+        statusElement.style.color = "#7f8c8d";
+      }
+    });
+
+    const camera = new Camera(video, {
+      onFrame: async () => {
+        await hands.send({ image: video });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+
+    // Enviar imagen al backend cada 3 segundos si hay mano
+    setInterval(() => {
+      if (handDetected) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          const formData = new FormData();
+          formData.append("image", blob, "captura.jpg");
+
+          fetch("http://localhost:5000/predict", {
+            method: "POST",
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log("Respuesta del servidor:", data);
+            
+            if (data.status === "success") {
+              lastLetter = data.letra;
+              lastLetterTime = Date.now();
+              letraDetectada.textContent = `Letra detectada: ${lastLetter}`;
+              letraDetectada.style.color = "#2ecc71";
+              fraseDisplay.textContent = data.frase;
+              
+              setTimeout(() => {
+                if (Date.now() - lastLetterTime >= 2000) {
+                  letraDetectada.textContent = '';
+                }
+              }, 2000);
+            } else if (data.status === "low_confidence") {
+              letraDetectada.textContent = "Señal no reconocida";
+              letraDetectada.style.color = "#e74c3c";
+              setTimeout(() => {
+                letraDetectada.textContent = '';
+              }, 2000);
+            }
+          })
+          .catch(error => {
+            console.error("Error al enviar imagen:", error);
+            letraDetectada.textContent = "Error de conexión";
+            letraDetectada.style.color = "#e74c3c";
+          });
+        }, "image/jpeg");
+      }
+    }, 3000);
+
+    // Obtener la frase del backend cada segundo
+    async function updateFraseDisplay() {
+      try {
+        const response = await fetch("http://localhost:5000/frase");
+        const data = await response.json();
+        if (data.frase !== undefined) {
+          fraseDisplay.textContent = data.frase || "Aquí aparecerá la frase...";
+        }
+      } catch (error) {
+        console.error("Error al obtener la frase:", error);
+      }
+    }
+
+    setInterval(updateFraseDisplay, 1000);
+
+    // Resetear frase
+    resetButton.addEventListener("click", () => {
+      fetch("http://localhost:5000/reset", { method: "POST" })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === "ok") {
+            fraseDisplay.textContent = "Aquí aparecerá la frase...";
+            letraDetectada.textContent = '';
+          }
+        })
+        .catch(error => console.error("Error al resetear:", error));
+    });
+  </script>
+</body>
+</html>
