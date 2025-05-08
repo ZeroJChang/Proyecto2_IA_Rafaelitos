@@ -75,7 +75,7 @@
 
     <div id="status">Buscando manos...</div>
     <div id="letraDetectada"></div>
-    <div id="fraseDisplay">Aquí aparecerá la frase...</div>
+    <div id="fraseDisplay">La frase es...</div>
 
     <button id="resetButton">Resetear Frase</button>
   </div>
@@ -178,7 +178,7 @@
         const response = await fetch("http://localhost:5000/frase");
         const data = await response.json();
         if (data.frase !== undefined) {
-          fraseDisplay.textContent = data.frase || "Aquí aparecerá la frase...";
+          fraseDisplay.textContent = data.frase || "La frase es...";
         }
       } catch (error) {
         console.error("Error al obtener la frase:", error);
@@ -193,7 +193,7 @@
         .then(response => response.json())
         .then(data => {
           if (data.status === "ok") {
-            fraseDisplay.textContent = "Aquí aparecerá la frase...";
+            fraseDisplay.textContent = "La frase es...";
             letraDetectada.textContent = '';
           }
         })

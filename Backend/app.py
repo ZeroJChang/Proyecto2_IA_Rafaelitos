@@ -44,7 +44,9 @@ def predict():
         "status": "success" if confidence > 0.3 else "low_confidence"
     }
 
-    if confidence > 0.5 and (not frase_actual or letra != frase_actual[-1]):
+    #if confidence > 0.5 and (not frase_actual or letra != frase_actual[-1]):
+
+    if confidence > 0.5:
         frase_actual += letra
         print(f"\U0001F4AC Letra predicha: {letra} (Confianza: {confidence:.2f})")
         print(f"\U0001F4DD Frase actual: {frase_actual}")

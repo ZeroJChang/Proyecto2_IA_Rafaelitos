@@ -11,10 +11,10 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from collections import Counter
 
-# 📂 Ruta del dataset
+#  Ruta del dataset
 dataset_path = r'C:\IA\Segundo Proyecto\ALS'
 
-# 📋 Leer imágenes
+#  Leer imágenes
 labels = []
 images = []
 
@@ -32,7 +32,7 @@ for filename in os.listdir(dataset_path):
         images.append(img)
         labels.append(label_encoded)
 
-# 🔥 Mostrar reporte de datos cargados
+#  Mostrar reporte de datos cargados
 contador_labels = Counter(labels)
 print("\n✅ Reporte de datos cargados:")
 print(f"Total de imágenes: {len(images)}")
@@ -40,16 +40,16 @@ for etiqueta, cantidad in contador_labels.items():
     nombre = "Nothing" if etiqueta == 26 else chr(etiqueta + ord('A'))
     print(f"Clase '{nombre}': {cantidad} imágenes")
 
-# 🔥 Preprocesar
+#  Preprocesar
 X = np.array(images)
 X = preprocess_input(X)  # Preprocesado especial para MobileNetV2
 y = np.array(labels)
 y = to_categorical(y, num_classes=27)
 
-# ✂️ Separar en train/test
+#  Separar en train/test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# 🔥 Data Augmentation
+#  Data Augmentation
 datagen = ImageDataGenerator(
     rotation_range=30,
     zoom_range=0.3,
@@ -62,7 +62,7 @@ datagen = ImageDataGenerator(
 )
 datagen.fit(X_train)
 
-# 🔥 Construir el modelo
+#  Construir el modelo
 base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224,224,3))
 base_model.trainable = False  # Congelar pesos de MobileNet
 
@@ -75,10 +75,10 @@ model = Sequential([
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-# 🛑 EarlyStopping
+#  EarlyStopping
 early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-# 🏋️ Entrenar
+#  Entrenar
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_test, y_test),
@@ -86,7 +86,7 @@ history = model.fit(
     callbacks=[early_stop]
 )
 
-# 💾 Guardar modelo
+#  Guardar modelo
 if not os.path.exists('modelo'):
     os.makedirs('modelo')
 
